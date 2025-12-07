@@ -68,6 +68,26 @@ export const messages: Record<string, Record<string, string>> = {
     moduleLIGHT: '灯光 LIGHT',
     moduleMEDIA: '媒体 MEDIA',
     moduleNAV: '导航 NAV',
+    
+    // 文件管理
+    files: '文件管理',
+    downloadTemplate: '下载模板',
+    importExcel: '导入Excel',
+    exportCurrent: '导出当前',
+    filename: '文件名',
+    source: '来源',
+    countLabel: '数量',
+    rules: '规则',
+    intents: '意图',
+    system: '系统',
+    imported: '导入',
+    active: '使用中',
+    use: '使用',
+    deleteFile: '删除',
+    importSuccess: '导入成功',
+    importFailed: '导入失败',
+    duplicatesRemoved: '去重',
+    confirmDelete: '确定删除此知识库？',
   },
   en: {
     // Page title
@@ -138,6 +158,26 @@ export const messages: Record<string, Record<string, string>> = {
     moduleLIGHT: 'LIGHT',
     moduleMEDIA: 'MEDIA',
     moduleNAV: 'NAV',
+    
+    // Files
+    files: 'Files',
+    downloadTemplate: 'Template',
+    importExcel: 'Import',
+    exportCurrent: 'Export',
+    filename: 'Filename',
+    source: 'Source',
+    countLabel: 'Count',
+    rules: 'Rules',
+    intents: 'Intents',
+    system: 'System',
+    imported: 'Import',
+    active: 'Active',
+    use: 'Use',
+    deleteFile: 'Delete',
+    importSuccess: 'Import success',
+    importFailed: 'Import failed',
+    duplicatesRemoved: 'duplicates removed',
+    confirmDelete: 'Delete this knowledge base?',
   }
 };
 

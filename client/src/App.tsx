@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Tabs, Table, Modal, Input, Button, Tag, Typography, Descriptions, Alert } from 'antd';
-import { SendOutlined, RobotOutlined, UserOutlined, MessageOutlined, CopyOutlined, GlobalOutlined } from '@ant-design/icons';
+import { SendOutlined, RobotOutlined, UserOutlined, MessageOutlined, CopyOutlined, GlobalOutlined, UploadOutlined, DownloadOutlined, DeleteOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Upload, Popconfirm } from 'antd';
 import { message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
@@ -46,9 +47,9 @@ const API_ENDPOINTS = [
   { key: 'health', method: 'GET', path: '/', name: '健康检查', body: null },
   { key: 'knowledge', method: 'GET', path: '/knowledge', name: '获取知识库', body: null },
   { key: 'logs', method: 'GET', path: '/logs?limit=10', name: '查询日志', body: null },
-  { key: 'chat', method: 'POST', path: '/chat', name: '完整对话', body: '{"message": "打开空调，导航去公司，播放音乐", "history": []}' },
-  { key: 'recognize', method: 'POST', path: '/chat/recognize', name: '模块识别', body: '{"message": "打开空调，导航去公司"}' },
-  { key: 'execute', method: 'POST', path: '/chat/execute', name: '执行命令', body: '{"commands": [{"module": "AC", "text": "打开空调"}, {"module": "NAV", "text": "导航去公司"}]}' },
+  { key: 'chat', method: 'POST', path: '/chat', name: '完整对话', body: JSON.stringify({ message: "打开空调，导航去公司，播放音乐", history: [] }, null, 2) },
+  { key: 'recognize', method: 'POST', path: '/chat/recognize', name: '模块识别', body: JSON.stringify({ message: "打开空调，导航去公司" }, null, 2) },
+  { key: 'execute', method: 'POST', path: '/chat/execute', name: '执行命令', body: JSON.stringify({ commands: [{ module: "AC", text: "打开空调" }, { module: "NAV", text: "导航去公司" }] }, null, 2) },
 ];
 
 const App: React.FC = () => {
@@ -72,10 +73,16 @@ const App: React.FC = () => {
   const [apiTestResponse, setApiTestResponse] = useState<{[key: string]: string}>({});
   const [apiTestLoading, setApiTestLoading] = useState<{[key: string]: boolean}>({});
   const [apiTestLatency, setApiTestLatency] = useState<{[key: string]: number}>({});
+  
+  // 文件管理相关状态
+  interface KBFile { id: string; name: string; source: string; rules: number; intents: number; active: boolean; }
+  const [kbFiles, setKbFiles] = useState<KBFile[]>([]);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   useEffect(() => {
     loadKnowledgeBase();
     loadLogs();
+    loadKBFiles();
   }, []);
 
   useEffect(() => {
@@ -153,6 +160,57 @@ const App: React.FC = () => {
       setTraces(logs);  // 后端已按倒序返回
     } catch (e) {
       console.error('Failed to load logs', e);
+    }
+  };
+
+  // 加载知识库文件列表
+  const loadKBFiles = async () => {
+    try {
+      const res = await axios.get('http://localhost:8000/knowledge/files');
+      setKbFiles(res.data);
+    } catch (e) {
+      console.error('Failed to load KB files', e);
+    }
+  };
+
+  // 上传知识库
+  const handleUploadKB = async (file: File) => {
+    setUploadLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await axios.post('http://localhost:8000/knowledge/upload', formData);
+      message.success(`${t('importSuccess')}: ${res.data.intents} ${t('intents')} (${res.data.duplicates_removed} ${t('duplicatesRemoved')})`);
+      loadKBFiles();
+      loadKnowledgeBase();
+    } catch (e: any) {
+      message.error(`${t('importFailed')}: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  // 激活知识库
+  const handleActivateKB = async (fileId: string) => {
+    try {
+      await axios.post(`http://localhost:8000/knowledge/activate/${fileId}`);
+      message.success('Activated');
+      loadKBFiles();
+      loadKnowledgeBase();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || e.message);
+    }
+  };
+
+  // 删除知识库
+  const handleDeleteKB = async (fileId: string) => {
+    try {
+      await axios.delete(`http://localhost:8000/knowledge/files/${fileId}`);
+      message.success('Deleted');
+      loadKBFiles();
+      loadKnowledgeBase();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || e.message);
     }
   };
 
@@ -454,7 +512,7 @@ const App: React.FC = () => {
               return true;
             })}
             pagination={false}
-            scroll={{ y: 'calc(100vh - 320px)' }}
+            scroll={{ y: 'calc(100vh - 200px)' }}
             size="small"
             locale={{ emptyText: t('noRecord') }}
           />
@@ -466,21 +524,6 @@ const App: React.FC = () => {
       label: t('knowledge'),
       children: (
         <div className="tab-content">
-          {rules.length > 0 && (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 12 }}
-              message={`${t('rulesTitle')} (${rules.length} ${t('total')})`}
-              description={
-                <div style={{ maxHeight: 120, overflow: 'auto' }}>
-                  {rules.map((rule, idx) => (
-                    <div key={idx} style={{ fontSize: 12, marginBottom: 4 }}>{rule}</div>
-                  ))}
-                </div>
-              }
-            />
-          )}
           <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span>
               <Text style={{ marginRight: 8 }}>{t('ability')}:</Text>
@@ -542,7 +585,81 @@ const App: React.FC = () => {
               return true;
             })}
             pagination={false}
-            scroll={{ y: rules.length > 0 ? 'calc(100vh - 440px)' : 'calc(100vh - 320px)' }}
+            scroll={{ y: 'calc(100vh - 280px)' }}
+            size="small"
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'files',
+      label: t('files'),
+      children: (
+        <div className="tab-content" style={{ padding: 16 }}>
+          <div style={{ marginBottom: 16, display: 'flex', gap: 12 }}>
+            <Button 
+              icon={<DownloadOutlined />} 
+              onClick={() => window.open('http://localhost:8000/knowledge/template', '_blank')}
+            >
+              {t('downloadTemplate')}
+            </Button>
+            <Upload
+              accept=".xlsx,.xls"
+              showUploadList={false}
+              beforeUpload={(file) => { handleUploadKB(file); return false; }}
+            >
+              <Button icon={<UploadOutlined />} loading={uploadLoading} type="primary">
+                {t('importExcel')}
+              </Button>
+            </Upload>
+            <Button 
+              icon={<DownloadOutlined />} 
+              onClick={() => window.open('http://localhost:8000/knowledge/export', '_blank')}
+            >
+              {t('exportCurrent')}
+            </Button>
+          </div>
+          <Table
+            dataSource={kbFiles.map((f, i) => ({ ...f, key: f.id, index: i + 1 }))}
+            columns={[
+              { title: '#', dataIndex: 'index', key: 'index', width: 50 },
+              { title: t('filename'), dataIndex: 'name', key: 'name' },
+              { 
+                title: t('source'), 
+                dataIndex: 'source', 
+                key: 'source',
+                width: 100,
+                render: (source: string) => (
+                  <Tag color={source === 'System' ? 'blue' : 'green'}>{source === 'System' ? t('system') : t('imported')}</Tag>
+                )
+              },
+              { 
+                title: t('intents'), 
+                dataIndex: 'intents',
+                key: 'intents',
+                width: 80,
+              },
+              {
+                title: t('action'),
+                key: 'action',
+                width: 150,
+                render: (_: any, record: KBFile) => (
+                  <span>
+                    {record.active ? (
+                      <Tag color="green" icon={<CheckCircleOutlined />}>{t('active')}</Tag>
+                    ) : (
+                      <Button size="small" type="link" onClick={() => handleActivateKB(record.id)}>{t('use')}</Button>
+                    )}
+                    {record.source !== 'System' && (
+                      <Popconfirm title={t('confirmDelete')} onConfirm={() => handleDeleteKB(record.id)}>
+                        <Button size="small" type="link" danger icon={<DeleteOutlined />} />
+                      </Popconfirm>
+                    )}
+                  </span>
+                )
+              }
+            ]}
+            pagination={false}
             size="small"
           />
         </div>

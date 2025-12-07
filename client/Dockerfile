@@ -1,7 +1,7 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 
-# 使用清华源
+# Use Tsinghua mirror
 RUN npm config set registry https://mirrors.tuna.tsinghua.edu.cn/npm/
 
 COPY package*.json ./

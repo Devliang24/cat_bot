@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Tabs, Table, Modal, Input, Button, Tag, Typography, Descriptions, Alert } from 'antd';
-import { SendOutlined, RobotOutlined, UserOutlined, MessageOutlined, CopyOutlined } from '@ant-design/icons';
+import { SendOutlined, RobotOutlined, UserOutlined, MessageOutlined, CopyOutlined, GlobalOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
+import { messages as i18nMessages } from './i18n';
+import type { Lang } from './i18n';
 import './index.css';
 
 const { TextArea } = Input;
@@ -16,6 +18,7 @@ interface Message {
   trace?: any;
   commands?: any[];
   results?: any[];
+  latency?: number;
   timestamp: string;
 }
 
@@ -49,11 +52,16 @@ const API_ENDPOINTS = [
 ];
 
 const App: React.FC = () => {
+  const [lang, setLang] = useState<Lang>('en');
+  const t = useCallback((key: string) => i18nMessages[lang][key] || key, [lang]);
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('打开空调');
   const [loading, setLoading] = useState(false);
   const [traces, setTraces] = useState<TraceRecord[]>([]);
+  const [traceFilter, setTraceFilter] = useState<{type: string, module: string, keyword: string}>({type: '', module: '', keyword: ''});
   const [intents, setIntents] = useState<IntentRecord[]>([]);
+  const [intentFilter, setIntentFilter] = useState<{ability: string, feature: string, keyword: string}>({ability: '', feature: '', keyword: ''});
   const [rules, setRules] = useState<string[]>([]);
   const [traceModalOpen, setTraceModalOpen] = useState(false);
   const [selectedTrace, setSelectedTrace] = useState<any>(null);
@@ -118,22 +126,31 @@ const App: React.FC = () => {
     try {
       const res = await axios.get('http://localhost:8000/logs?limit=50');
       const logs = res.data.map((log: any, idx: number) => {
-        let traceData = { user_input: log.user_input, latency_ms: log.latency_ms };
-        try {
-          if (log.raw_response) {
+        let traceData: any = { user_input: log.user_input, latency_ms: log.latency_ms };
+        if (log.raw_response) {
+          try {
+            // 先尝试直接解析 JSON
             traceData = { ...JSON.parse(log.raw_response), user_input: log.user_input, latency_ms: log.latency_ms };
+          } catch {
+            try {
+              // 兼容 Python dict 格式
+              const jsonStr = log.raw_response.replace(/'/g, '"').replace(/True/g, 'true').replace(/False/g, 'false').replace(/None/g, 'null');
+              traceData = { ...JSON.parse(jsonStr), user_input: log.user_input, latency_ms: log.latency_ms };
+            } catch (e) {
+              console.warn('Failed to parse raw_response', log.id, e);
+            }
           }
-        } catch (e) {}
+        }
         return {
           key: log.id,
           index: idx + 1,
           input: log.user_input,
-          tokens: 0,
+          tokens: traceData.token_usage?.total_tokens || 0,
           latency: `${((log.latency_ms || 0) / 1000).toFixed(1)}s`,
           trace: traceData,
         };
       });
-      setTraces(logs.reverse());
+      setTraces(logs);  // 后端已按倒序返回
     } catch (e) {
       console.error('Failed to load logs', e);
     }
@@ -180,14 +197,9 @@ const App: React.FC = () => {
     setLoading(true);
 
     try {
-      const history = messages.map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
-
       const res = await axios.post('http://localhost:8000/chat', {
         message: userMsg.content,
-        history,
+        history: [],  // 单轮对话
       });
 
       const data = res.data;
@@ -198,24 +210,28 @@ const App: React.FC = () => {
         trace: data.trace,
         commands: data.commands,
         results: data.results,
+        latency: data.latency_ms,
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages(prev => [...prev, agentMsg]);
 
-      const newTrace: TraceRecord = {
-        key: traces.length + 1,
-        index: traces.length + 1,
-        input: userMsg.content,
-        tokens: data.trace?.token_usage?.total_tokens || 0,
-        latency: `${((data.latency_ms || data.trace?.latency_ms || 0) / 1000).toFixed(1)}s`,
-        trace: { ...data, user_input: userMsg.content },
-      };
-      setTraces(prev => [...prev, newTrace]);
+      setTraces(prev => {
+        const newTrace: TraceRecord = {
+          key: Date.now(),
+          index: 1,
+          input: userMsg.content,
+          tokens: data.token_usage?.total_tokens || 0,
+          latency: `${((data.latency_ms || 0) / 1000).toFixed(1)}s`,
+          trace: { ...data, user_input: userMsg.content },
+        };
+        // 新记录插入到最前面，更新其他记录的 index
+        return [newTrace, ...prev.map((t, i) => ({...t, index: i + 2}))];
+      });
     } catch (e) {
       console.error(e);
       const errorMsg: Message = {
         role: 'agent',
-        content: '连接服务器失败',
+        content: t('connectError'),
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -225,17 +241,35 @@ const App: React.FC = () => {
   };
 
   const traceColumns: ColumnsType<TraceRecord> = [
-    { title: '序号', dataIndex: 'index', key: 'index', width: 70 },
-    { title: '输入', dataIndex: 'input', key: 'input', ellipsis: true },
-    { title: 'Token', dataIndex: 'tokens', key: 'tokens', width: 80 },
-    { title: '延迟', dataIndex: 'latency', key: 'latency', width: 80 },
-    {
-      title: '操作',
-      key: 'action',
+    { title: '#', dataIndex: 'index', key: 'index', width: 60 },
+    { title: t('input'), dataIndex: 'input', key: 'input', ellipsis: true },
+    { 
+      title: t('type'), 
+      key: 'type', 
       width: 80,
+      render: (_, record) => {
+        const count = record.trace?.commands?.length || 0;
+        return <Tag color={count > 1 ? 'blue' : 'default'}>{count > 1 ? t('multi') : t('single')}</Tag>;
+      }
+    },
+    { 
+      title: t('module'), 
+      key: 'modules', 
+      width: 120,
+      render: (_, record) => {
+        const modules = [...new Set((record.trace?.commands || []).map((c: any) => c.module))] as string[];
+        return modules.map((m) => <Tag key={m} color="purple" style={{ marginBottom: 2 }}>{m}</Tag>);
+      }
+    },
+    { title: t('token'), dataIndex: 'tokens', key: 'tokens', width: 70 },
+    { title: t('delay'), dataIndex: 'latency', key: 'latency', width: 70 },
+    {
+      title: t('action'),
+      key: 'action',
+      width: 60,
       render: (_, record) => (
         <Button type="link" size="small" onClick={() => { setSelectedTrace(record.trace); setTraceModalOpen(true); }}>
-          查看
+          {t('view')}
         </Button>
       ),
     },
@@ -253,23 +287,28 @@ const App: React.FC = () => {
   const tabItems = [
     {
       key: 'chat',
-      label: '对话',
+      label: t('chat'),
       children: (
         <div className="chat-wrapper">
           <div className="chat-container">
             <div className="chat-header">
-              <div className="chat-header-avatar">
-                <RobotOutlined />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="chat-header-avatar">
+                  <RobotOutlined />
+                </div>
+                <h3 style={{ margin: 0 }}>{t('title')}</h3>
               </div>
-              <div className="chat-header-info">
-                <h3>车载语音助手</h3>
-              </div>
+              {messages.length > 0 && (
+                <Button size="small" type="text" style={{ color: 'rgba(255,255,255,0.8)' }} onClick={() => setMessages([])}>
+                  {t('clearChat')}
+                </Button>
+              )}
             </div>
             <div className="chat-messages">
               {messages.length === 0 ? (
                 <div className="chat-empty">
                   <MessageOutlined className="chat-empty-icon" />
-                  <p>发送消息开始对话</p>
+                  <p>{t('sendMessage')}</p>
                 </div>
               ) : (
                 <>
@@ -290,6 +329,11 @@ const App: React.FC = () => {
                                   <Tag color="green" style={{ margin: 0 }}>{r.action}</Tag>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                          {msg.role === 'agent' && msg.latency && (
+                            <div style={{ marginTop: 6, fontSize: 11, color: '#999', textAlign: 'right' }}>
+                              {t('latency')} {(msg.latency / 1000).toFixed(2)}s
                             </div>
                           )}
                         </div>
@@ -322,7 +366,7 @@ const App: React.FC = () => {
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onPressEnter={e => { if (!e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                  placeholder="输入指令..."
+                  placeholder={t('inputPlaceholder')}
                   autoSize={{ minRows: 1, maxRows: 4 }}
                   style={{ flex: 1, borderRadius: 20 }}
                 />
@@ -332,7 +376,6 @@ const App: React.FC = () => {
                   icon={<SendOutlined />} 
                   onClick={handleSend} 
                   loading={loading}
-                  size="large"
                 />
               </div>
               <div className="quick-commands">
@@ -353,23 +396,74 @@ const App: React.FC = () => {
     },
     {
       key: 'trace',
-      label: '思维链',
+      label: t('trace'),
       children: (
         <div className="tab-content">
+          <div style={{ marginBottom: 12, display: 'flex', gap: 12 }}>
+            <span>
+              <Text style={{ marginRight: 8 }}>{t('type')}:</Text>
+              <select 
+                value={traceFilter.type} 
+                onChange={(e) => setTraceFilter(prev => ({...prev, type: e.target.value}))}
+                style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
+              >
+                <option value="">{t('all')}</option>
+                <option value="single">{t('single')}</option>
+                <option value="multi">{t('multi')}</option>
+              </select>
+            </span>
+            <span>
+              <Text style={{ marginRight: 8 }}>{t('module')}:</Text>
+              <select 
+                value={traceFilter.module} 
+                onChange={(e) => setTraceFilter(prev => ({...prev, module: e.target.value}))}
+                style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
+              >
+                <option value="">{t('all')}</option>
+                <option value="AC">{t('moduleAC')}</option>
+                <option value="SEAT">{t('moduleSEAT')}</option>
+                <option value="WINDOW">{t('moduleWINDOW')}</option>
+                <option value="LIGHT">{t('moduleLIGHT')}</option>
+                <option value="MEDIA">{t('moduleMEDIA')}</option>
+                <option value="NAV">{t('moduleNAV')}</option>
+              </select>
+            </span>
+            <span>
+              <Text style={{ marginRight: 8 }}>{t('search')}:</Text>
+              <input 
+                type="text"
+                value={traceFilter.keyword} 
+                onChange={(e) => setTraceFilter(prev => ({...prev, keyword: e.target.value}))}
+                placeholder={t('search')}
+                style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9', width: 200 }}
+              />
+            </span>
+            {(traceFilter.type || traceFilter.module || traceFilter.keyword) && (
+              <Button size="small" onClick={() => setTraceFilter({type: '', module: '', keyword: ''})}>{t('clear')}</Button>
+            )}
+          </div>
           <Table
             columns={traceColumns}
-            dataSource={traces}
+            dataSource={traces.filter(t => {
+              const cmdCount = t.trace?.commands?.length || 0;
+              const modules = (t.trace?.commands || []).map((c: any) => c.module);
+              if (traceFilter.type === 'single' && cmdCount !== 1) return false;
+              if (traceFilter.type === 'multi' && cmdCount <= 1) return false;
+              if (traceFilter.module && !modules.includes(traceFilter.module)) return false;
+              if (traceFilter.keyword && !t.input.includes(traceFilter.keyword)) return false;
+              return true;
+            })}
             pagination={false}
-            scroll={{ y: 'calc(100vh - 280px)' }}
+            scroll={{ y: 'calc(100vh - 320px)' }}
             size="small"
-            locale={{ emptyText: '暂无记录，请先在对话中发送消息' }}
+            locale={{ emptyText: t('noRecord') }}
           />
         </div>
       ),
     },
     {
       key: 'knowledge',
-      label: '知识库',
+      label: t('knowledge'),
       children: (
         <div className="tab-content">
           {rules.length > 0 && (
@@ -377,7 +471,7 @@ const App: React.FC = () => {
               type="info"
               showIcon
               style={{ marginBottom: 12 }}
-              message={`车辆控制规则 (${rules.length} 条)`}
+              message={`${t('rulesTitle')} (${rules.length} ${t('total')})`}
               description={
                 <div style={{ maxHeight: 120, overflow: 'auto' }}>
                   {rules.map((rule, idx) => (
@@ -387,11 +481,68 @@ const App: React.FC = () => {
               }
             />
           )}
+          <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span>
+              <Text style={{ marginRight: 8 }}>{t('ability')}:</Text>
+              <select 
+                value={intentFilter.ability} 
+                onChange={(e) => setIntentFilter(prev => ({...prev, ability: e.target.value, feature: ''}))}
+                style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9', minWidth: 120 }}
+              >
+                <option value="">{t('all')}</option>
+                {[...new Set(intents.map(i => i.ability))].map(ability => (
+                  <option key={ability} value={ability}>{ability}</option>
+                ))}
+              </select>
+            </span>
+            <span>
+              <Text style={{ marginRight: 8 }}>{t('feature')}:</Text>
+              <select 
+                value={intentFilter.feature} 
+                onChange={(e) => setIntentFilter(prev => ({...prev, feature: e.target.value}))}
+                style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9', maxWidth: 150 }}
+              >
+                <option value="">{t('all')}</option>
+                {[...new Set(intents.filter(i => !intentFilter.ability || i.ability === intentFilter.ability).map(i => i.feature))].map(feature => (
+                  <option key={feature} value={feature}>{feature.length > 10 ? feature.slice(0, 10) + '...' : feature}</option>
+                ))}
+              </select>
+            </span>
+            <span>
+              <Text style={{ marginRight: 8 }}>{t('search')}:</Text>
+              <input 
+                type="text"
+                value={intentFilter.keyword} 
+                onChange={(e) => setIntentFilter(prev => ({...prev, keyword: e.target.value}))}
+                placeholder={t('searchPlaceholder')}
+                style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9', width: 200 }}
+              />
+            </span>
+            {(intentFilter.ability || intentFilter.feature || intentFilter.keyword) && (
+              <Button size="small" onClick={() => setIntentFilter({ability: '', feature: '', keyword: ''})}>{t('clear')}</Button>
+            )}
+            <Text type="secondary" style={{ marginLeft: 'auto' }}>
+              {(() => {
+                const filtered = intents.filter(i => {
+                  if (intentFilter.ability && i.ability !== intentFilter.ability) return false;
+                  if (intentFilter.feature && i.feature !== intentFilter.feature) return false;
+                  if (intentFilter.keyword && !i.intent.includes(intentFilter.keyword) && !i.query.includes(intentFilter.keyword)) return false;
+                  return true;
+                });
+                return `${t('showing')} ${filtered.length} / ${intents.length} ${t('total')}`;
+              })()}
+            </Text>
+          </div>
           <Table
             columns={intentColumns}
-            dataSource={intents}
+            dataSource={intents.filter(i => {
+              if (intentFilter.ability && i.ability !== intentFilter.ability) return false;
+              if (intentFilter.feature && i.feature !== intentFilter.feature) return false;
+              if (intentFilter.keyword && !i.intent.includes(intentFilter.keyword) && !i.query.includes(intentFilter.keyword)) return false;
+              return true;
+            })}
             pagination={false}
-            scroll={{ y: rules.length > 0 ? 'calc(100vh - 400px)' : 'calc(100vh - 280px)' }}
+            scroll={{ y: rules.length > 0 ? 'calc(100vh - 440px)' : 'calc(100vh - 320px)' }}
             size="small"
           />
         </div>
@@ -399,10 +550,10 @@ const App: React.FC = () => {
     },
     {
       key: 'api',
-      label: 'API文档',
+      label: t('api'),
       children: (
         <div className="tab-content" style={{ padding: 16, overflow: 'auto', height: 'calc(100vh - 180px)' }}>
-          <Typography.Title level={4}>接口文档 <Text type="secondary" style={{ fontSize: 14 }}>点击"测试"按钮可在线调试</Text></Typography.Title>
+          <Typography.Title level={4}>{t('apiTitle')} <Text type="secondary" style={{ fontSize: 14 }}>{t('apiTip')}</Text></Typography.Title>
           
           {/* 接口列表 */}
           {API_ENDPOINTS.map((endpoint) => (
@@ -516,15 +667,22 @@ const App: React.FC = () => {
     <div className="app-container">
       <div className="app-wrapper">
         <div className="app-header">
-          <h1>车载语音助手</h1>
+          <h1>{t('title')}</h1>
+          <Button 
+            type="text" 
+            icon={<GlobalOutlined />} 
+            onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+          >
+            {lang === 'zh' ? 'EN' : '中文'}
+          </Button>
         </div>
         <div className="app-content">
-          <Tabs items={tabItems} style={{ height: '100%' }} tabBarStyle={{ padding: '0 16px' }} />
+          <Tabs items={tabItems} style={{ height: '100%' }} tabBarStyle={{ padding: '0 16px' }} destroyInactiveTabPane={false} />
         </div>
       </div>
 
       <Modal
-        title="思维链详情"
+        title={t('traceDetail')}
         open={traceModalOpen}
         onCancel={() => setTraceModalOpen(false)}
         footer={null}
@@ -532,14 +690,14 @@ const App: React.FC = () => {
       >
         {selectedTrace && (
           <Descriptions column={1} bordered size="small">
-            <Descriptions.Item label="用户输入">{selectedTrace.user_input}</Descriptions.Item>
-            <Descriptions.Item label="延迟">{((selectedTrace.latency_ms || 0) / 1000).toFixed(2)}s</Descriptions.Item>
-            <Descriptions.Item label="识别指令">
+            <Descriptions.Item label={t('userInput')}>{selectedTrace.user_input}</Descriptions.Item>
+            <Descriptions.Item label={t('latency')}>{((selectedTrace.latency_ms || 0) / 1000).toFixed(2)}s</Descriptions.Item>
+            <Descriptions.Item label={t('recognizedCommands')}>
               {selectedTrace.commands?.map((cmd: any, i: number) => (
                 <Tag key={i} color="blue" style={{ marginBottom: 4 }}>[{cmd.module}] {cmd.text}</Tag>
-              )) || '无'}
+              )) || '-'}
             </Descriptions.Item>
-            <Descriptions.Item label="执行结果">
+            <Descriptions.Item label={t('execResults')}>
               {selectedTrace.results?.map((r: any, i: number) => (
                 <div key={i} style={{ marginBottom: 4 }}>
                   <Tag color="blue">{r.module}</Tag>
@@ -547,10 +705,10 @@ const App: React.FC = () => {
                   <Tag color="green">{r.action}</Tag>
                   <span style={{ color: '#666', fontSize: 12 }}>{r.reply}</span>
                 </div>
-              )) || '无'}
+              )) || '-'}
             </Descriptions.Item>
-            <Descriptions.Item label="合并回复">{selectedTrace.summary || selectedTrace.reply}</Descriptions.Item>
-            <Descriptions.Item label="完整响应">
+            <Descriptions.Item label={t('mergedReply')}>{selectedTrace.summary || selectedTrace.reply}</Descriptions.Item>
+            <Descriptions.Item label={t('fullResponse')}>
               <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f5f5f5', padding: 8, borderRadius: 4, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
                 {JSON.stringify(selectedTrace, null, 2)}
               </pre>

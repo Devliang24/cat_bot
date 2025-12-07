@@ -1,189 +1,214 @@
-# Qwen Car Agent 🚗
+# Car Voice Assistant 🚗
 
-基于阿里云通义千问 (Qwen-Max) 的智能车载语音助手系统，支持车辆控制、导航和媒体播放等功能，配备双屏工作台用于调试思维链。
+An intelligent car voice assistant system based on Alibaba Cloud Qwen-Max, featuring LangGraph multi-agent architecture for vehicle control, navigation, and media playback. Includes a full-featured debugging workbench.
 
-## 技术栈
+## Tech Stack
 
-| 层级 | 技术 |
-|------|------|
-| **后端 API** | FastAPI + Uvicorn |
-| **LLM** | 阿里云 DashScope (Qwen-Max) |
-| **数据库** | SQLite + SQLAlchemy |
-| **前端** | React 19 + TypeScript + Vite |
-| **UI 组件** | Ant Design 6.x |
-| **数据预处理** | Pandas + openpyxl |
+| Layer | Technology |
+|-------|------------|
+| **Backend API** | FastAPI + Uvicorn |
+| **Agent Framework** | LangGraph (Multi-Agent) |
+| **LLM** | Alibaba DashScope (Qwen-Max) |
+| **Database** | SQLite + SQLAlchemy |
+| **Frontend** | React 19 + TypeScript + Vite |
+| **UI Components** | Ant Design 6.x |
+| **I18n** | Built-in (EN/CN) |
 
-## 架构概览
+## Architecture
 
 ```
-┌─────────────────┐     HTTP API     ┌─────────────────┐     DashScope     ┌─────────────┐
-│  React Frontend │ ◄──────────────► │  FastAPI Server │ ◄───────────────► │  Qwen-Max   │
-│  (localhost:5173)│                 │  (localhost:8000)│                   │    LLM      │
-└─────────────────┘                  └────────┬────────┘                   └─────────────┘
-                                              │
-                                              ▼
-                                     ┌─────────────────┐
-                                     │  SQLite + JSON  │
-                                     │  (日志 + 知识库)  │
-                                     └─────────────────┘
+┌─────────────────┐     HTTP API     ┌─────────────────────────────────────┐
+│  React Frontend │ ◄──────────────► │         FastAPI + LangGraph         │
+│  (localhost:5173)│                 │                                     │
+└─────────────────┘                  │  ┌─────────┐    ┌──────────────┐   │
+                                     │  │ Router  │───►│ Module Agents │   │
+                                     │  │ Agent   │    │ AC/NAV/MEDIA  │   │
+                                     │  └─────────┘    │ SEAT/WINDOW   │   │
+                                     │       │         │ LIGHT         │   │
+                                     │       ▼         └──────┬───────┘   │
+                                     │  ┌─────────┐           │           │
+                                     │  │Summarizer│◄─────────┘           │
+                                     │  │ Agent   │                       │
+                                     │  └─────────┘                       │
+                                     └────────────────────────────────────┘
 ```
 
-## 数据流
+## Multi-Agent Workflow
 
 ```mermaid
-sequenceDiagram
-    participant U as 👤 用户
-    participant F as 🖥️ Frontend
-    participant B as ⚙️ Backend
-    participant Q as 🤖 Qwen-Max
-    participant D as 💾 SQLite
-
-    U->>F: 输入指令 "打开空调"
-    F->>B: POST /chat
-    B->>B: 构建 System Prompt (注入知识库)
-    B->>Q: 调用 LLM API
-    Q-->>B: JSON 响应 {action, reply, intent}
-    B->>D: 记录日志 (ChatLog)
-    B-->>F: 返回结果 + Trace 信息
-    F-->>U: 显示回复 + 动作标签
+graph LR
+    A[User Input] --> B[RouterAgent]
+    B --> C[Split Commands]
+    C --> D1[ACAgent]
+    C --> D2[NAVAgent]
+    C --> D3[MEDIAAgent]
+    C --> D4[SEATAgent]
+    C --> D5[WINDOWAgent]
+    C --> D6[LIGHTAgent]
+    D1 --> E[ExecutorAgent]
+    D2 --> E
+    D3 --> E
+    D4 --> E
+    D5 --> E
+    D6 --> E
+    E --> F[SummarizerAgent]
+    F --> G[Response]
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 car_bot/
-├── scripts/                    # 数据预处理
-│   └── preprocess.py           # Excel → JSON 转换
-├── server/                     # FastAPI 后端
-│   ├── main.py                 # API 路由定义
-│   ├── agent.py                # Qwen Agent 核心逻辑
-│   ├── database.py             # SQLite 日志表定义
+├── scripts/
+│   └── preprocess.py           # Excel → JSON ETL
+├── server/
+│   ├── main_v2.py              # FastAPI + LangGraph API
+│   ├── agents/
+│   │   ├── base.py             # BaseAgent with token tracking
+│   │   ├── router.py           # Command recognition
+│   │   ├── executor.py         # Action execution
+│   │   ├── summarizer.py       # Response merging
+│   │   └── modules/            # Domain agents
+│   │       ├── ac.py           # AC control (42 intents)
+│   │       ├── nav.py          # Navigation
+│   │       ├── media.py        # Media playback
+│   │       ├── seat.py         # Seat control (17 intents)
+│   │       ├── window.py       # Window control (17 intents)
+│   │       └── light.py        # Light control (13 intents)
+│   ├── graph/
+│   │   ├── state.py            # AgentState definition
+│   │   ├── nodes.py            # Workflow nodes
+│   │   └── workflow.py         # LangGraph workflow
 │   └── data/
-│       └── knowledge_base.json # 知识库 (规则 + 意图)
-├── client/                     # React 前端 (Vite + AntD)
+│       └── knowledge_base.json # Rules + Intents (124 unique)
+├── client/
 │   └── src/
-│       ├── App.tsx             # 主应用组件
-│       └── index.css           # 样式文件
-├── VR_Feature_List_demo.xlsx   # 原始数据源
-└── car_bot.db                  # SQLite 日志数据库
+│       ├── App.tsx             # Main app (4 tabs)
+│       ├── i18n.ts             # Internationalization
+│       └── index.css           # Styles
+├── docker-compose.yml          # Docker deployment
+├── run_backend.sh              # Backend startup
+└── run_frontend.sh             # Frontend startup
 ```
 
-## 环境要求
+## Requirements
 
 - Python 3.9+
-- Node.js 16+
-- DashScope API Key (阿里云)
+- Node.js 18+
+- DashScope API Key (Alibaba Cloud)
 
-## 快速启动
+## Quick Start
 
-### 1. 数据预处理 (可选)
-知识库已生成，如需重新处理：
+### 1. Data Preprocessing (Optional)
 ```bash
 python scripts/preprocess.py
 ```
 
-### 2. 启动后端
+### 2. Start Backend
 ```bash
-cd server
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# Using script
+./run_backend.sh
 
+# Or manually
+cd server
+source ../.venv/bin/activate
 export DASHSCOPE_API_KEY="sk-..."
-uvicorn main:app --reload --port 8000
+uvicorn main_v2:app --reload --port 8000
 ```
 
-### 3. 启动前端
+### 3. Start Frontend
 ```bash
+# Using script
+./run_frontend.sh
+
+# Or manually
 cd client
 npm install
 npm run dev
 ```
-访问 http://localhost:5173
 
-## API 接口
+Access http://localhost:5173
 
-| 路由 | 方法 | 功能 |
-|------|------|------|
-| `/` | GET | 健康检查 |
-| `/knowledge` | GET | 获取知识库 |
-| `/chat` | POST | 对话处理 |
-| `/logs` | GET | 查询历史日志 |
+## Docker Deployment
 
-### 对话请求示例
+```bash
+# Set API key
+export DASHSCOPE_API_KEY="sk-..."
+
+# Build and run
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+## API Endpoints
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/` | GET | Health check |
+| `/knowledge` | GET | Get knowledge base |
+| `/chat` | POST | Full chat (multi-agent) |
+| `/chat/recognize` | POST | Module recognition only |
+| `/chat/execute` | POST | Execute commands |
+| `/logs` | GET | Query history logs |
+
+### Chat Request Example
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "打开空调", "history": []}'
+  -d '{"message": "Turn on AC and navigate to office", "history": []}'
 ```
 
-### 响应格式
+### Response Format
 ```json
 {
-  "reply": "好的，已为您打开空调",
-  "action": {"action": "AC_ON"},
-  "trace": {"latency_ms": 1200, "token_usage": {...}},
+  "reply": "AC turned on. Navigation to office started.",
+  "commands": [
+    {"module": "AC", "text": "Turn on AC"},
+    {"module": "NAV", "text": "navigate to office"}
+  ],
+  "results": [
+    {"module": "AC", "intent": "turn_on_ac", "action": "AC_ON", "reply": "AC turned on"},
+    {"module": "NAV", "intent": "navigate", "action": "NAV_START", "reply": "Navigation started"}
+  ],
+  "latency_ms": 2500,
+  "token_usage": {"input_tokens": 1800, "output_tokens": 120, "total_tokens": 1920},
   "log_id": 1
 }
 ```
 
-## 数据库结构 (ChatLog)
+## Frontend Features
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `user_input` | Text | 用户输入 |
-| `intent_detected` | String | 检测到的意图 |
-| `full_prompt` | Text | 完整 Prompt |
-| `raw_response` | Text | LLM 原始响应 |
-| `parsed_action` | JSON | 解析后的动作 |
-| `latency_ms` | Integer | 延迟 (毫秒) |
-| `token_usage` | JSON | Token 用量 |
+| Tab | Description |
+|-----|-------------|
+| **Chat** | Real-time conversation with execution details |
+| **Trace** | Debug logs with type/module/keyword filters |
+| **Knowledge** | Rules + Intents table with ability/feature filters |
+| **API Docs** | Interactive API testing |
 
-## 知识库内容
+## Supported Modules
 
-### 车辆控制规则 (5 条)
-- 硬件不支持时回复 "暂不支持此技能"
-- 支持各位置独立控制 (主驾/副驾/前排/后排)
-- 车辆未启动时拒绝空调相关命令
+| Module | Intents | Examples |
+|--------|---------|----------|
+| AC | 42 | Turn on/off, temperature, fan speed, defrost |
+| SEAT | 17 | Heating, ventilation, massage, position |
+| WINDOW | 17 | Open/close, lock, sunroof, sunshade |
+| LIGHT | 13 | Headlights, ambient light, brightness |
+| NAV | - | Destination, route, POI search |
+| MEDIA | - | Play, pause, volume, source |
 
-### 支持的功能领域
+## Key Features
 
-```mermaid
-mindmap
-  root((🚗 Vehicle))
-    🌡️ 空调控制
-      打开/关闭空调
-      温度调节
-      风量设置
-      制冷/制热
-    💨 风向控制
-      吹足/吹面
-      模式切换
-    ❄️ 除霜除雾
-      前后除霜
-      最大除霜
-    💺 座椅控制
-      加热
-      通风
-      按摩
-    🪟 车窗天窗
-      开关控制
-      锁定解锁
-    💡 灯光控制
-      近光灯/远光灯
-      氛围灯
-```
+- ✅ LangGraph multi-agent architecture
+- ✅ Multi-command recognition & parallel execution
+- ✅ Token usage tracking across agents
+- ✅ Full debugging toolchain (trace visualization)
+- ✅ Internationalization (English/Chinese)
+- ✅ Knowledge-driven from Excel
+- ✅ Docker deployment ready
+- ✅ Interactive API documentation
 
-## 前端功能
+## License
 
-1. **对话界面**: 实时聊天 + 快捷指令
-2. **思维链查看**: Prompt / Token / 延迟 / cURL
-3. **知识库展示**: 规则列表 + 意图表格
-
-## 项目亮点
-
-- ✅ 完整的调试工具链 (思维链可视化)
-- ✅ 结构化 JSON 输出，便于后续处理
-- ✅ 多位置支持 (主驾/副驾/前后排)
-- ✅ 知识库驱动，从 Excel 自动生成
-- ✅ 保留最近 5 轮对话上下文
+MIT

@@ -110,8 +110,10 @@ async def execute(req: ExecuteRequest):
 @app.post("/chat")
 async def chat(req: ChatRequest):
     """完整流程（兼容旧版 + 新功能）"""
+    from agents.base import BaseAgent
     try:
         start_time = time.time()
+        BaseAgent.reset_tokens()  # 重置 token 计数
         
         # 使用 LangGraph 工作流
         state = {
@@ -124,19 +126,21 @@ async def chat(req: ChatRequest):
         
         result = workflow.invoke(state)
         latency = int((time.time() - start_time) * 1000)
+        token_usage = BaseAgent.get_tokens()
         
         # 保存日志
         db = SessionLocal()
         try:
             import json as json_lib
+            result_with_tokens = {**result, "token_usage": token_usage}
             log = ChatLog(
                 user_input=req.message,
                 intent_detected=",".join([r["intent"] for r in result["results"]]),
                 full_prompt="Multi-agent workflow",
-                raw_response=json_lib.dumps(result, ensure_ascii=False),
+                raw_response=json_lib.dumps(result_with_tokens, ensure_ascii=False),
                 parsed_action=json_lib.dumps([r["action"] for r in result["results"]], ensure_ascii=False),
                 latency_ms=latency,
-                token_usage="{}"
+                token_usage=json_lib.dumps(token_usage)
             )
             db.add(log)
             db.commit()
@@ -150,6 +154,7 @@ async def chat(req: ChatRequest):
             "summary": result["summary"],
             "reply": result["summary"],  # 兼容旧版
             "latency_ms": latency,
+            "token_usage": token_usage,
             "log_id": log_id
         }
     except Exception as e:

@@ -105,23 +105,34 @@ python scripts/preprocess.py
 ```
 
 ### 2. Start Backend
-```bash
-# Using script
-./run_backend.sh
 
-# Or manually
+**Linux/macOS:**
+```bash
 cd server
 source ../.venv/bin/activate
 export DASHSCOPE_API_KEY="sk-..."
 uvicorn main_v2:app --reload --port 8000
 ```
 
-### 3. Start Frontend
-```bash
-# Using script
-./run_frontend.sh
+**Windows (PowerShell):**
+```powershell
+cd server
+..\.venv\Scripts\Activate.ps1
+$env:DASHSCOPE_API_KEY="sk-..."
+uvicorn main_v2:app --reload --port 8000
+```
 
-# Or manually
+### 3. Start Frontend
+
+**Linux/macOS:**
+```bash
+cd client
+npm install
+npm run dev
+```
+
+**Windows (PowerShell):**
+```powershell
 cd client
 npm install
 npm run dev

@@ -57,7 +57,7 @@ const App: React.FC = () => {
   const t = useCallback((key: string) => i18nMessages[lang][key] || key, [lang]);
   
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('打开空调');
+  const [input, setInput] = useState('打开空调，导航去公司，播放音乐');
   const [loading, setLoading] = useState(false);
   const [traces, setTraces] = useState<TraceRecord[]>([]);
   const [traceFilter, setTraceFilter] = useState<{type: string, module: string, keyword: string}>({type: '', module: '', keyword: ''});

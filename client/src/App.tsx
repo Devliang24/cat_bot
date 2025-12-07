@@ -14,6 +14,8 @@ interface Message {
   content: string;
   action?: any;
   trace?: any;
+  commands?: any[];
+  results?: any[];
   timestamp: string;
 }
 
@@ -36,6 +38,16 @@ interface IntentRecord {
   query: string;
 }
 
+// API 测试配置
+const API_ENDPOINTS = [
+  { key: 'health', method: 'GET', path: '/', name: '健康检查', body: null },
+  { key: 'knowledge', method: 'GET', path: '/knowledge', name: '获取知识库', body: null },
+  { key: 'logs', method: 'GET', path: '/logs?limit=10', name: '查询日志', body: null },
+  { key: 'chat', method: 'POST', path: '/chat', name: '完整对话', body: '{"message": "打开空调，导航去公司，播放音乐", "history": []}' },
+  { key: 'recognize', method: 'POST', path: '/chat/recognize', name: '模块识别', body: '{"message": "打开空调，导航去公司"}' },
+  { key: 'execute', method: 'POST', path: '/chat/execute', name: '执行命令', body: '{"commands": [{"module": "AC", "text": "打开空调"}, {"module": "NAV", "text": "导航去公司"}]}' },
+];
+
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('打开空调');
@@ -46,9 +58,16 @@ const App: React.FC = () => {
   const [traceModalOpen, setTraceModalOpen] = useState(false);
   const [selectedTrace, setSelectedTrace] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // API 测试相关状态
+  const [apiTestBody, setApiTestBody] = useState<{[key: string]: string}>({});
+  const [apiTestResponse, setApiTestResponse] = useState<{[key: string]: string}>({});
+  const [apiTestLoading, setApiTestLoading] = useState<{[key: string]: boolean}>({});
+  const [apiTestLatency, setApiTestLatency] = useState<{[key: string]: number}>({});
 
   useEffect(() => {
     loadKnowledgeBase();
+    loadLogs();
   }, []);
 
   useEffect(() => {
@@ -95,6 +114,59 @@ const App: React.FC = () => {
     }
   };
 
+  const loadLogs = async () => {
+    try {
+      const res = await axios.get('http://localhost:8000/logs?limit=50');
+      const logs = res.data.map((log: any, idx: number) => {
+        let traceData = { user_input: log.user_input, latency_ms: log.latency_ms };
+        try {
+          if (log.raw_response) {
+            traceData = { ...JSON.parse(log.raw_response), user_input: log.user_input, latency_ms: log.latency_ms };
+          }
+        } catch (e) {}
+        return {
+          key: log.id,
+          index: idx + 1,
+          input: log.user_input,
+          tokens: 0,
+          latency: `${((log.latency_ms || 0) / 1000).toFixed(1)}s`,
+          trace: traceData,
+        };
+      });
+      setTraces(logs.reverse());
+    } catch (e) {
+      console.error('Failed to load logs', e);
+    }
+  };
+
+  // 执行 API 测试
+  const runApiTest = async (endpoint: any) => {
+    const key = endpoint.key;
+    setApiTestLoading(prev => ({ ...prev, [key]: true }));
+    const startTime = Date.now();
+    
+    try {
+      let res;
+      const url = `http://localhost:8000${endpoint.path}`;
+      
+      if (endpoint.method === 'GET') {
+        res = await axios.get(url);
+      } else {
+        const bodyStr = apiTestBody[key] || endpoint.body || '{}';
+        const body = JSON.parse(bodyStr);
+        res = await axios.post(url, body);
+      }
+      
+      setApiTestLatency(prev => ({ ...prev, [key]: Date.now() - startTime }));
+      setApiTestResponse(prev => ({ ...prev, [key]: JSON.stringify(res.data, null, 2) }));
+    } catch (e: any) {
+      setApiTestLatency(prev => ({ ...prev, [key]: Date.now() - startTime }));
+      setApiTestResponse(prev => ({ ...prev, [key]: `Error: ${e.message}` }));
+    } finally {
+      setApiTestLoading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -121,9 +193,11 @@ const App: React.FC = () => {
       const data = res.data;
       const agentMsg: Message = {
         role: 'agent',
-        content: data.reply,
+        content: data.reply || data.summary,
         action: data.action,
         trace: data.trace,
+        commands: data.commands,
+        results: data.results,
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages(prev => [...prev, agentMsg]);
@@ -133,8 +207,8 @@ const App: React.FC = () => {
         index: traces.length + 1,
         input: userMsg.content,
         tokens: data.trace?.token_usage?.total_tokens || 0,
-        latency: `${(data.trace?.latency_ms / 1000).toFixed(1)}s`,
-        trace: data.trace,
+        latency: `${((data.latency_ms || data.trace?.latency_ms || 0) / 1000).toFixed(1)}s`,
+        trace: { ...data, user_input: userMsg.content },
       };
       setTraces(prev => [...prev, newTrace]);
     } catch (e) {
@@ -207,9 +281,15 @@ const App: React.FC = () => {
                       <div className="message-content">
                         <div className="message-bubble">
                           {msg.content}
-                          {msg.role === 'agent' && msg.action && (
-                            <div className="message-action">
-                              <Tag color="orange" style={{ margin: 0 }}>{msg.action?.action || 'NONE'}</Tag>
+                          {msg.role === 'agent' && msg.results && msg.results.length > 0 && (
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+                              {msg.results.map((r: any, i: number) => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 12 }}>
+                                  <Tag color="blue" style={{ margin: 0 }}>{r.module}</Tag>
+                                  <span style={{ color: '#666' }}>{r.intent}</span>
+                                  <Tag color="green" style={{ margin: 0 }}>{r.action}</Tag>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -256,7 +336,7 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="quick-commands">
-                {['打开空调', '导航去公司', '播放音乐', '调高温度', '打开车窗'].map((cmd) => (
+                {['打开空调，导航去公司', '播放音乐，温度调到26度', '打开车窗，关闭空调'].map((cmd) => (
                   <Tag 
                     key={cmd} 
                     className="quick-cmd-tag"
@@ -299,11 +379,11 @@ const App: React.FC = () => {
               style={{ marginBottom: 12 }}
               message={`车辆控制规则 (${rules.length} 条)`}
               description={
-                <ul style={{ margin: 0, paddingLeft: 20, maxHeight: 120, overflow: 'auto' }}>
+                <div style={{ maxHeight: 120, overflow: 'auto' }}>
                   {rules.map((rule, idx) => (
-                    <li key={idx} style={{ fontSize: 12 }}>{rule}</li>
+                    <div key={idx} style={{ fontSize: 12, marginBottom: 4 }}>{rule}</div>
                   ))}
-                </ul>
+                </div>
               }
             />
           )}
@@ -314,6 +394,119 @@ const App: React.FC = () => {
             scroll={{ y: rules.length > 0 ? 'calc(100vh - 400px)' : 'calc(100vh - 280px)' }}
             size="small"
           />
+        </div>
+      ),
+    },
+    {
+      key: 'api',
+      label: 'API文档',
+      children: (
+        <div className="tab-content" style={{ padding: 16, overflow: 'auto', height: 'calc(100vh - 180px)' }}>
+          <Typography.Title level={4}>接口文档 <Text type="secondary" style={{ fontSize: 14 }}>点击"测试"按钮可在线调试</Text></Typography.Title>
+          
+          {/* 接口列表 */}
+          {API_ENDPOINTS.map((endpoint) => (
+            <div key={endpoint.key} style={{ marginBottom: 16, padding: 16, background: endpoint.method === 'GET' ? '#fafafa' : '#e6f7ff', borderRadius: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span>
+                  <Tag color={endpoint.method === 'GET' ? 'green' : 'blue'}>{endpoint.method}</Tag>
+                  <Text strong style={{ fontSize: 15 }}>{endpoint.path}</Text>
+                  <Text type="secondary" style={{ marginLeft: 12 }}>{endpoint.name}</Text>
+                </span>
+                <span>
+                  {apiTestLatency[endpoint.key] > 0 && <Text type="secondary" style={{ marginRight: 12 }}>{apiTestLatency[endpoint.key]}ms</Text>}
+                  <Button type="primary" onClick={() => runApiTest(endpoint)} loading={apiTestLoading[endpoint.key]}>测试</Button>
+                </span>
+              </div>
+              
+              {/* 接口说明 */}
+              <div style={{ marginBottom: 12, padding: 12, background: '#fff', borderRadius: 4, border: '1px solid #e8e8e8', fontSize: 12 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <Text strong>说明：</Text>
+                  <Text type="secondary">
+                    {endpoint.key === 'health' && '检查服务是否正常运行'}
+                    {endpoint.key === 'knowledge' && '返回知识库数据，包含规则和意图列表'}
+                    {endpoint.key === 'logs' && '查询对话历史记录'}
+                    {endpoint.key === 'chat' && '完整对话流程：自动识别多指令 → 分发到各模块 → 返回执行结果'}
+                    {endpoint.key === 'recognize' && '阶段1-模块识别：将用户输入拆分为多条指令，识别所属模块'}
+                    {endpoint.key === 'execute' && '阶段2-执行命令：根据模块和指令，生成动作代码和回复'}
+                  </Text>
+                </div>
+                
+                <div style={{ marginBottom: 8 }}>
+                  <Text strong>请求参数：</Text>
+                  <Text>
+                    {endpoint.key === 'health' && '无'}
+                    {endpoint.key === 'knowledge' && '无'}
+                    {endpoint.key === 'logs' && 'limit (可选，默认50)'}
+                    {endpoint.key === 'chat' && 'message: string (用户输入), history: array (对话历史，可选)'}
+                    {endpoint.key === 'recognize' && 'message: string (用户输入，支持多指令如"打开空调，导航去公司")'}
+                    {endpoint.key === 'execute' && 'commands: array [{module: "AC"|"NAV"|..., text: "指令文本"}]'}
+                  </Text>
+                </div>
+                
+                <div>
+                  <Text strong>响应字段：</Text>
+                  <Text>
+                    {endpoint.key === 'health' && 'status, service'}
+                    {endpoint.key === 'knowledge' && 'rules: string[], intents: [{domain, ability, feature, intent, query}]'}
+                    {endpoint.key === 'logs' && '[{id, user_input, intent_detected, latency_ms, created_at}]'}
+                    {endpoint.key === 'chat' && 'commands[], results[], summary, reply, latency_ms, log_id'}
+                    {endpoint.key === 'recognize' && 'commands: [{index, module, text, confidence}], latency_ms'}
+                    {endpoint.key === 'execute' && 'results: [{index, module, intent, params, action, reply}], summary, latency_ms'}
+                  </Text>
+                </div>
+              </div>
+              
+              {endpoint.method === 'POST' && (
+                <div style={{ marginBottom: 12 }}>
+                  <Text strong style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>请求体:</Text>
+                  <TextArea
+                    value={apiTestBody[endpoint.key] ?? endpoint.body ?? ''}
+                    onChange={(e) => setApiTestBody(prev => ({ ...prev, [endpoint.key]: e.target.value }))}
+                    rows={6}
+                    style={{ fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                </div>
+              )}
+              
+              {apiTestResponse[endpoint.key] && (
+                <div>
+                  <Text strong style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>响应结果:</Text>
+                  <pre style={{ margin: 0, padding: 12, background: '#1f1f1f', color: '#0f0', borderRadius: 4, fontSize: 12, maxHeight: 250, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                    {apiTestResponse[endpoint.key]}
+                  </pre>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* 模块说明 */}
+          <Typography.Title level={5}>支持的模块</Typography.Title>
+          <Table
+            columns={[
+              { title: '模块', dataIndex: 'module', key: 'module', width: 100 },
+              { title: '代码', dataIndex: 'code', key: 'code', width: 80, render: (t: string) => <Tag color="purple">{t}</Tag> },
+              { title: '功能', dataIndex: 'features', key: 'features' },
+              { title: '动作代码示例', dataIndex: 'actions', key: 'actions', render: (t: string) => <Text code style={{ fontSize: 11 }}>{t}</Text> },
+            ]}
+            dataSource={[
+              { key: 1, module: '空调控制', code: 'AC', features: '开关、温度、风量、制冷/制热、除霜除雾', actions: 'AC_ON, AC_OFF, TEMP_SET_26, TEMP_UP' },
+              { key: 2, module: '导航', code: 'NAV', features: '目的地导航、回家、去公司、搜索POI', actions: 'NAV_TO, NAV_HOME, NAV_COMPANY, NAV_SEARCH' },
+              { key: 3, module: '媒体', code: 'MEDIA', features: '播放/暂停、上下首、音量、电台', actions: 'MEDIA_PLAY, MEDIA_PAUSE, VOL_UP, VOL_DOWN' },
+              { key: 4, module: '座椅', code: 'SEAT', features: '加热、通风、按摩、位置调节', actions: 'SEAT_HEAT_ON, SEAT_VENT_ON, SEAT_MASSAGE_ON' },
+              { key: 5, module: '车窗', code: 'WINDOW', features: '车窗开关、天窗控制', actions: 'WINDOW_OPEN, WINDOW_CLOSE, SUNROOF_OPEN' },
+              { key: 6, module: '灯光', code: 'LIGHT', features: '近光灯、远光灯、雾灯、氛围灯', actions: 'LIGHT_ON, LIGHT_HIGH, AMBIENT_ON' },
+            ]}
+            pagination={false}
+            size="small"
+          />
+
+          <div style={{ marginTop: 16 }}>
+            <Button type="primary" onClick={() => window.open('http://localhost:8000/docs', '_blank')}>
+              查看 Swagger 文档
+            </Button>
+          </div>
         </div>
       ),
     },
@@ -340,20 +533,26 @@ const App: React.FC = () => {
         {selectedTrace && (
           <Descriptions column={1} bordered size="small">
             <Descriptions.Item label="用户输入">{selectedTrace.user_input}</Descriptions.Item>
-            <Descriptions.Item label="Token 用量">
-              输入: {selectedTrace.token_usage?.input_tokens || 0}, 
-              输出: {selectedTrace.token_usage?.output_tokens || 0}, 
-              总计: {selectedTrace.token_usage?.total_tokens || 0}
+            <Descriptions.Item label="延迟">{((selectedTrace.latency_ms || 0) / 1000).toFixed(2)}s</Descriptions.Item>
+            <Descriptions.Item label="识别指令">
+              {selectedTrace.commands?.map((cmd: any, i: number) => (
+                <Tag key={i} color="blue" style={{ marginBottom: 4 }}>[{cmd.module}] {cmd.text}</Tag>
+              )) || '无'}
             </Descriptions.Item>
-            <Descriptions.Item label="延迟">{(selectedTrace.latency_ms / 1000).toFixed(2)}s</Descriptions.Item>
-            <Descriptions.Item label="原始响应">
-              <pre style={{ maxHeight: 150, overflow: 'auto', background: '#f5f5f5', padding: 8, borderRadius: 4, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
-                {selectedTrace.raw_response}
-              </pre>
+            <Descriptions.Item label="执行结果">
+              {selectedTrace.results?.map((r: any, i: number) => (
+                <div key={i} style={{ marginBottom: 4 }}>
+                  <Tag color="blue">{r.module}</Tag>
+                  <Tag color="purple">{r.intent}</Tag>
+                  <Tag color="green">{r.action}</Tag>
+                  <span style={{ color: '#666', fontSize: 12 }}>{r.reply}</span>
+                </div>
+              )) || '无'}
             </Descriptions.Item>
-            <Descriptions.Item label="完整 Prompt">
-              <pre style={{ maxHeight: 'calc(100vh - 500px)', overflow: 'auto', background: '#f5f5f5', padding: 8, borderRadius: 4, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
-                {selectedTrace.full_prompt}
+            <Descriptions.Item label="合并回复">{selectedTrace.summary || selectedTrace.reply}</Descriptions.Item>
+            <Descriptions.Item label="完整响应">
+              <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f5f5f5', padding: 8, borderRadius: 4, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
+                {JSON.stringify(selectedTrace, null, 2)}
               </pre>
             </Descriptions.Item>
             <Descriptions.Item label="cURL">

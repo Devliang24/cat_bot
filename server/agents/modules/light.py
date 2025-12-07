@@ -7,11 +7,15 @@ class LightAgent(BaseAgent):
         "打开车灯": {"action": "LIGHT_ON", "params": []},
         "关闭车灯": {"action": "LIGHT_OFF", "params": []},
         "打开近光灯": {"action": "LIGHT_LOW", "params": []},
+        "关闭近光灯": {"action": "LIGHT_LOW_OFF", "params": []},
         "打开远光灯": {"action": "LIGHT_HIGH", "params": []},
+        "关闭远光灯": {"action": "LIGHT_HIGH_OFF", "params": []},
         "打开雾灯": {"action": "FOG_LIGHT_ON", "params": []},
         "关闭雾灯": {"action": "FOG_LIGHT_OFF", "params": []},
         "打开氛围灯": {"action": "AMBIENT_ON", "params": ["color"]},
         "关闭氛围灯": {"action": "AMBIENT_OFF", "params": []},
+        "氛围灯调亮": {"action": "AMBIENT_UP", "params": []},
+        "氛围灯调暗": {"action": "AMBIENT_DOWN", "params": []},
         "调节氛围灯": {"action": "AMBIENT_SET", "params": ["color", "brightness"]}
     }
     

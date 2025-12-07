@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from .state import AgentState
-from ..agents import RouterAgent, ExecutorAgent, SummarizerAgent
-from ..agents.modules import ACAgent, NavAgent, MediaAgent, SeatAgent, WindowAgent, LightAgent
+from agents import RouterAgent, ExecutorAgent, SummarizerAgent
+from agents.modules import ACAgent, NavAgent, MediaAgent, SeatAgent, WindowAgent, LightAgent
 
 # 初始化 Agents
 router_agent = RouterAgent()

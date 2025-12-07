@@ -6,10 +6,20 @@ class WindowAgent(BaseAgent):
     INTENTS = {
         "打开车窗": {"action": "WINDOW_OPEN", "params": ["position"]},
         "关闭车窗": {"action": "WINDOW_CLOSE", "params": ["position"]},
+        "车窗开一半": {"action": "WINDOW_HALF", "params": ["position"]},
+        "车窗开大一点": {"action": "WINDOW_MORE", "params": ["position"]},
+        "车窗关小一点": {"action": "WINDOW_LESS", "params": ["position"]},
+        "车窗升起": {"action": "WINDOW_UP", "params": ["position"]},
+        "车窗降下": {"action": "WINDOW_DOWN", "params": ["position"]},
+        "锁定车窗": {"action": "WINDOW_LOCK", "params": ["position"]},
+        "解锁车窗": {"action": "WINDOW_UNLOCK", "params": ["position"]},
         "打开天窗": {"action": "SUNROOF_OPEN", "params": []},
         "关闭天窗": {"action": "SUNROOF_CLOSE", "params": []},
-        "车窗升起": {"action": "WINDOW_UP", "params": ["position"]},
-        "车窗降下": {"action": "WINDOW_DOWN", "params": ["position"]}
+        "天窗开一半": {"action": "SUNROOF_HALF", "params": []},
+        "天窗开大一点": {"action": "SUNROOF_MORE", "params": []},
+        "天窗关小一点": {"action": "SUNROOF_LESS", "params": []},
+        "打开遮阳帘": {"action": "SHADE_OPEN", "params": ["position"]},
+        "关闭遮阳帘": {"action": "SHADE_CLOSE", "params": ["position"]}
     }
     
     def get_system_prompt(self) -> str:

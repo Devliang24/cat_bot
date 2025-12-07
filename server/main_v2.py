@@ -128,12 +128,13 @@ async def chat(req: ChatRequest):
         # 保存日志
         db = SessionLocal()
         try:
+            import json as json_lib
             log = ChatLog(
                 user_input=req.message,
                 intent_detected=",".join([r["intent"] for r in result["results"]]),
                 full_prompt="Multi-agent workflow",
-                raw_response=str(result),
-                parsed_action=str([r["action"] for r in result["results"]]),
+                raw_response=json_lib.dumps(result, ensure_ascii=False),
+                parsed_action=json_lib.dumps([r["action"] for r in result["results"]], ensure_ascii=False),
                 latency_ms=latency,
                 token_usage="{}"
             )
@@ -176,7 +177,8 @@ async def get_logs(limit: int = 50):
                 "user_input": log.user_input,
                 "intent_detected": log.intent_detected,
                 "latency_ms": log.latency_ms,
-                "created_at": str(log.created_at)
+                "raw_response": log.raw_response,
+                "timestamp": str(log.timestamp)
             }
             for log in logs
         ]

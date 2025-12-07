@@ -1,0 +1,879 @@
+{
+  "rules": [
+    "2. 若实际车型硬件不支持此功能，则TTS回复”抱歉，暂不支持此技能“",
+    "3. 若实际车型硬件和信号支持，需支持各位置的独立控制，若用户未说出具体位置，按当前已开启位置进行调节，若无已开启位置，则按主驾（HVAC为前排）进行处理；若不支持对应位置，则TTS回复“抱歉，暂不支持空调分区控制”/“抱歉，暂不支持座椅分区控制”；",
+    "4. 车辆未启动时，空调相关命令TTS回复：“抱歉，请先启动发动机后再打开空调\"，语音退出； 后除霜/方向盘加热/座椅通风/加热相关指令，TTS 回复：“抱歉，请先启动发动机”",
+    "5. TTS播报位置与实际query位置保持一致；未指定位置时，TTS播报中以需调整的位置作为位置部分进行播报。",
+    "6. 部分位置已到极值时，调整包含该位置但不等于该位置的值时，按中间过程TTS处理，举例：副驾座椅加热已到最大值，主驾座椅加热在中间档位，用户指令“前排座椅加热调高一档”，TTS播报“前排座椅加热已为您调高”"
+  ],
+  "intents": [
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "打开空调",
+      "intent": "打开空调",
+      "query": "开启空调"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "打开空调",
+      "intent": "打开【所有/前排/后排/主驾/副驾/左后/右后】空调",
+      "query": "开启【位置】空调"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "关闭空调",
+      "intent": "关闭空调",
+      "query": "空调关闭"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "关闭空调",
+      "intent": "关闭【所有/前排/后排/主驾/副驾/左后/右后】空调",
+      "query": "【位置】空调关闭"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "设置空调温度",
+      "intent": "温度调到X度",
+      "query": "温度<X>度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "设置空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】空调温度调到X度",
+      "query": "【位置】温度<X>度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低空调温度",
+      "intent": "降温",
+      "query": "温度减小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】降温",
+      "query": "【位置】温度减小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低空调温度",
+      "intent": "降温X度",
+      "query": "温度降低<X>度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】降温X度",
+      "query": "【位置】温度降低<X>度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低空调温度",
+      "intent": "降到最低",
+      "query": "最低温度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】温度降到最低",
+      "query": "【位置】最低温度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "提高空调温度",
+      "intent": "升温",
+      "query": "空调温度升高"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "提高空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】升温",
+      "query": "【位置】空调温度升高"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "提高空调温度",
+      "intent": "升温X度",
+      "query": "调高温度<X>度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "提高空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】升温X度",
+      "query": "【位置】调高温度<X>度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "提高空调温度",
+      "intent": "温度升到最高",
+      "query": "最高温度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "提高空调温度",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】温度到最高",
+      "query": "【位置】最高温度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "空调制冷",
+      "intent": "打开空调制冷",
+      "query": "打开空调制冷"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "空调制冷",
+      "intent": "关闭空调制冷",
+      "query": "关闭空调制冷"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "空调制冷",
+      "intent": "打开AC",
+      "query": "打开制冷"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "空调制冷",
+      "intent": "关闭AC",
+      "query": "关掉压缩机"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "空调制热",
+      "intent": "打开空调制热",
+      "query": "打开空调制热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "空调制热",
+      "intent": "关闭空调制热",
+      "query": "关闭空调制热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低风量",
+      "intent": "风量减小1档",
+      "query": "风速减小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低风量",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】风量减小1档",
+      "query": "主驾风速减小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低风量",
+      "intent": "风量减小到最小",
+      "query": "风量最小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "降低风量",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】风量减小到最小",
+      "query": "主驾风量最小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "调高风量",
+      "intent": "风量调大1档",
+      "query": "风速增加"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "调高风量",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】风量调大1档",
+      "query": "主驾风速增加"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "调高风量",
+      "intent": "风量调大到最大",
+      "query": "风量调到最大"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "调高风量",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】风量调大到最大",
+      "query": "主驾风量调到最大"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "设置风量",
+      "intent": "风量X档",
+      "query": "调整风量到<X>档"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调控制",
+      "feature": "设置风量",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】风量X档",
+      "query": "调整主驾风量到<X>档"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "风向控制",
+      "feature": "设置风向",
+      "intent": "切换吹风模式",
+      "query": "切换吹风模式"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "风向控制",
+      "feature": "设置风向",
+      "intent": "吹足",
+      "query": "吹脚模式"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "风向控制",
+      "feature": "设置风向",
+      "intent": "吹面吹足",
+      "query": "空调吹头吹足"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "风向控制",
+      "feature": "设置风向",
+      "intent": "吹面",
+      "query": "吹面模式"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "打开除霜",
+      "intent": "打开除霜",
+      "query": "空调模式切换为除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "打开除霜",
+      "intent": "打开前除霜",
+      "query": "打开前除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "打开除霜",
+      "intent": "打开后除霜",
+      "query": "打开后除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "打开除霜",
+      "intent": "打开除雾",
+      "query": "空调除雾"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "关闭除霜",
+      "intent": "关闭除霜",
+      "query": "关闭除霜模式"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "关闭除霜",
+      "intent": "关闭前除霜",
+      "query": "关闭前挡风除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "关闭除霜",
+      "intent": "关闭后除霜",
+      "query": "关闭后挡风除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "关闭除霜",
+      "intent": "关闭除雾",
+      "query": "关闭除雾模式"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "打开最大除霜",
+      "intent": "打开最大除霜",
+      "query": "打开最大除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调除霜",
+      "feature": "关闭最大除霜",
+      "intent": "关闭最大除霜",
+      "query": "关闭最大除霜"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调循环切换",
+      "feature": "外循环",
+      "intent": "打开外循环",
+      "query": "打开外循环"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调循环切换",
+      "feature": "内循环",
+      "intent": "打开内循环",
+      "query": "打开内循环"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调自动模式控制",
+      "feature": "打开空调自动模式",
+      "intent": "打开自动空调模式",
+      "query": "打开自动"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "空调自动模式控制",
+      "feature": "关闭空调自动模式",
+      "intent": "关闭自动空调模式",
+      "query": "关掉空调自动模式"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "同步空调温度",
+      "feature": "关闭空调同步",
+      "intent": "打开分区",
+      "query": "打开空调分区"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "同步空调温度",
+      "feature": "同步空调温度",
+      "intent": "关闭分区",
+      "query": "关闭空调分区"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "方向盘加热",
+      "feature": "打开/关闭方向盘加热",
+      "intent": "打开方向盘加热",
+      "query": "打开方向盘加热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "方向盘加热",
+      "feature": "打开/关闭方向盘加热",
+      "intent": "关闭方向盘加热",
+      "query": "关闭方向盘加热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "风扇",
+      "feature": "打开风扇",
+      "intent": "打开风扇",
+      "query": "打开风扇/吹风"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "风扇",
+      "feature": "关闭风扇",
+      "intent": "关闭风扇",
+      "query": "关闭风扇/吹风"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "查询空调温度",
+      "feature": "查询空调温度",
+      "intent": "查询空调温度",
+      "query": "(主驾/副驾/左后/右后/前排/后排/全车)空调温度是多少？\n(主驾/副驾/左后/右后/前排/后排/全车)空调多少度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "打开座椅加热",
+      "intent": "打开座椅加热",
+      "query": "打开座椅加热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "打开座椅加热",
+      "intent": "打开【所有/前排/后排/主驾/副驾/左后/右后】座椅加热",
+      "query": "打开【位置】座椅加热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "关闭座椅加热",
+      "intent": "关闭座椅加热",
+      "query": "关闭座椅加热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "关闭座椅加热",
+      "intent": "关闭【所有/前排/后排/主驾/副驾/左后/右后】座椅加热",
+      "query": "关闭【位置】座椅加热"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "加热挡位设置",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】座椅加热调为N档",
+      "query": "【位置】座椅加热调到N档"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "调节座椅温度",
+      "intent": "降低座椅温度",
+      "query": "座椅温度太高了"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅加热控制",
+      "feature": "调节座椅温度",
+      "intent": "调高座椅温度",
+      "query": "调高座椅温度"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "打开座椅通风",
+      "intent": "打开座椅通风",
+      "query": "打开座椅通风"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "打开座椅通风",
+      "intent": "打开【所有/前排/后排/主驾/副驾/左后/右后】座椅通风",
+      "query": "打开【位置】座椅通风"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "关闭座椅通风",
+      "intent": "关闭座椅通风",
+      "query": "关闭座椅通风"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "关闭座椅通风",
+      "intent": "关闭【所有/前排/后排/主驾/副驾/左后/右后】座椅通风",
+      "query": "关闭【位置】座椅通风"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "通风挡位设置",
+      "intent": "【所有/前排/后排/主驾/副驾/左后/右后】座椅通风调到N档位",
+      "query": "【位置】座椅通风调到N档"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "调节座椅通风",
+      "intent": "座椅通风减小",
+      "query": "座椅通风减小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "调节座椅通风",
+      "intent": "座椅通风增大",
+      "query": "座椅通风增大"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "调节座椅通风",
+      "intent": "座椅通风最大",
+      "query": "把座椅通风调到最大"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "调节座椅通风",
+      "intent": "座椅通风最小",
+      "query": "把座椅通风调到最小"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "座椅按摩",
+      "intent": "打开座椅按摩",
+      "query": "打开座椅按摩"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "座椅按摩",
+      "intent": "关闭座椅按摩",
+      "query": "关闭座椅按摩"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "座椅按摩",
+      "intent": "打开【位置】座椅按摩",
+      "query": "打开【位置】座椅按摩"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "座椅通风控制",
+      "feature": "座椅按摩",
+      "intent": "关闭【位置】座椅按摩",
+      "query": "关闭【位置】座椅按摩"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "打开车窗",
+      "intent": "打开车窗",
+      "query": "把车窗打开"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "打开车窗",
+      "intent": "开一点车窗",
+      "query": "【位置】车窗开一点"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "打开车窗",
+      "intent": "车窗开一半【所有/主驾/副驾/左后/右后/前排/后排】",
+      "query": "把【位置】车窗打开"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "打开车窗",
+      "intent": "车窗打开百分比【所有/主驾/副驾/左后/右后/前排/后排】",
+      "query": "【位置】车窗打开50%"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "打开车窗",
+      "intent": "打开【所有/前排/后排/主驾/副驾/左后/右后】车窗",
+      "query": "把【位置】车窗打开"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "关闭车窗",
+      "intent": "关闭车窗",
+      "query": "车窗关闭"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "关闭车窗",
+      "intent": "车窗关闭百分比【所有/前排/后排/主驾/副驾/左后/右后】",
+      "query": "【位置】车窗关30%"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "关闭车窗",
+      "intent": "关一点车窗",
+      "query": "【位置】车窗关一点"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "关闭车窗",
+      "intent": "关闭【所有/主驾/副驾/左后/右后/前排/后排】车窗",
+      "query": "【位置】车窗关闭"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "锁定/解锁车窗",
+      "intent": "锁定车窗",
+      "query": "锁定车窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "锁定/解锁车窗",
+      "intent": "锁定【主驾/副驾/左后/右后/前排/后排】车窗",
+      "query": "锁定【位置】车窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "锁定/解锁车窗",
+      "intent": "解锁车窗",
+      "query": "解锁车窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗控制",
+      "feature": "锁定/解锁车窗",
+      "intent": "解锁【主驾/副驾/左后/右后/前排/后排】车窗",
+      "query": "解锁【位置】车窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "天窗控制",
+      "feature": "打开天窗",
+      "intent": "打开天窗",
+      "query": "我要打开天窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "天窗控制",
+      "feature": "打开天窗",
+      "intent": "天窗开一半",
+      "query": "把天窗打开一半"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "天窗控制",
+      "feature": "打开天窗",
+      "intent": "天窗打开百分比",
+      "query": "天窗打开50%"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "天窗控制",
+      "feature": "打开天窗",
+      "intent": "天窗开大一点",
+      "query": "请把天窗开大点"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "天窗控制",
+      "feature": "关闭天窗",
+      "intent": "关闭天窗",
+      "query": "关闭天窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "天窗控制",
+      "feature": "关闭天窗",
+      "intent": "天窗关小一点",
+      "query": "请把天窗调关小点"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗天窗同时控制",
+      "feature": "车窗/天窗同时控制",
+      "intent": "车窗和天窗同时打开",
+      "query": "打开车窗和天窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "车窗天窗同时控制",
+      "feature": "车窗/天窗同时控制",
+      "intent": "车窗和天窗同时关闭",
+      "query": "关闭车窗和天窗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "打开遮阳帘",
+      "intent": "打开遮阳帘",
+      "query": "打开遮阳帘"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "打开遮阳帘",
+      "intent": "遮阳帘开一半【前排/后排/主驾/副驾/左后/右后】",
+      "query": "【位置】遮阳帘开一半"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "打开遮阳帘",
+      "intent": "打开【前排/后排/主驾/副驾/左后/右后】遮阳帘",
+      "query": "打开【位置】遮阳帘"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "关闭遮阳帘",
+      "intent": "关闭遮阳帘",
+      "query": "关闭遮阳帘"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "关闭遮阳帘",
+      "intent": "关闭【前排/后排/主驾/副驾/左后/右后】遮阳帘",
+      "query": "关闭【位置】遮阳帘"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "近光灯开关",
+      "intent": "打开近光灯",
+      "query": "打开车灯"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "近光灯开关",
+      "intent": "关闭近光灯",
+      "query": "关闭车灯"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "远光灯开关",
+      "intent": "打开远光灯",
+      "query": "打开远光灯"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "遮阳帘控制",
+      "feature": "远光灯开关",
+      "intent": "关闭远光灯",
+      "query": "关闭远光灯"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "氛围灯",
+      "feature": "打开氛围灯",
+      "intent": "打开氛围灯",
+      "query": "打开氛围灯"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "氛围灯",
+      "feature": "关闭氛围灯",
+      "intent": "关闭氛围灯",
+      "query": "关闭氛围灯"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "氛围灯",
+      "feature": "氛围灯调亮",
+      "intent": "氛围灯调亮",
+      "query": "氛围灯亮一点"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "氛围灯",
+      "feature": "氛围灯调暗",
+      "intent": "氛围灯调暗",
+      "query": "氛围灯亮度调低"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "氛围灯",
+      "feature": "打开X色氛围灯（白色、橙色、橘黄/桔黄、黄色、绿色、天蓝色、海蓝色、宝蓝色、蓝色、紫色、粉色）",
+      "intent": "打开X色氛围灯（白色、橙色、橘黄/桔黄、黄色、绿色、天蓝色、海蓝色、宝蓝色、蓝色、紫色、粉色）",
+      "query": "我想把氛围灯调成x色"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "驾驶模式",
+      "feature": "切换驾驶模式",
+      "intent": "我的模式/自定义模式",
+      "query": "(请/可以/可不可以/能/能不能)+(帮我/给我/帮忙)+(把/将)+（驾驶模式）+换/切换/设置/修改/换成/设/调/跳到/跳转+(成/为/到/至)+【驾驶模式】+(嘛/吗/吧/啊/阿/啦/哎/呢/哇/哦/哈/呦/么)\n\n(我要/我想)+(把/将)+（驾驶模式）+换/切换/设置/修改/换成/设/调/调到+（成/为/到/至)+【驾驶模式】\n\n换/切换/设置/修改/调整/设+（驾驶模式）+成/为/到/至+【驾驶模式】"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "燃料相关查询",
+      "feature": "查询油量",
+      "intent": "查询油量是否充足/查询当前油量",
+      "query": "剩余油量够吗"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "燃料相关查询",
+      "feature": "查询电量",
+      "intent": "查询电量是否充足/查询当前电量",
+      "query": "电量是不是偏低了"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "燃料相关查询",
+      "feature": "查询剩余里程",
+      "intent": "查询剩余油量的续航里程",
+      "query": "剩余油量还能开多少公里"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "胎压",
+      "feature": "查询胎压",
+      "intent": "按具体位置查询胎压状态",
+      "query": "「左前/右前/左后/右后」胎压是否正常"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "胎压",
+      "feature": "查询胎压",
+      "intent": "查询全部胎压状态",
+      "query": "「全部」胎压是否正常"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "胎压",
+      "feature": "查询胎压",
+      "intent": "按具体位置查询胎压数值",
+      "query": "「左前/右前/左后/右后」轮胎胎压是多少"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "胎压",
+      "feature": "查询胎压",
+      "intent": "查询全部胎压数值",
+      "query": "胎压是多少"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "油箱",
+      "feature": "油箱容量",
+      "intent": "油箱容量是多少",
+      "query": "油箱容量是多少"
+    },
+    {
+      "domain": "Vehicle",
+      "ability": "充电",
+      "feature": "电池容量",
+      "intent": "电池容量是多少",
+      "query": "电池容量是多少"
+    }
+  ]
+}

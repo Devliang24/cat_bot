@@ -733,14 +733,13 @@ const App: React.FC = () => {
                     <TextArea
                       value={apiTestBody[endpoint.key] ?? endpoint.body ?? ''}
                       onChange={(e) => setApiTestBody(prev => ({ ...prev, [endpoint.key]: e.target.value }))}
-                      rows={8}
-                      style={{ fontFamily: 'monospace', fontSize: 12 }}
+                      style={{ fontFamily: 'monospace', fontSize: 12, height: 180, resize: 'none' }}
                     />
                   </div>
                 )}
                 <div style={{ flex: 1 }}>
                   <Text strong style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>{t('respResult')}:</Text>
-                  <pre style={{ margin: 0, padding: 12, background: '#1f1f1f', color: '#0f0', borderRadius: 4, fontSize: 12, height: endpoint.method === 'POST' ? 176 : 'auto', maxHeight: 250, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                  <pre style={{ margin: 0, padding: 12, background: '#1f1f1f', color: '#0f0', borderRadius: 4, fontSize: 12, height: 156, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                     {apiTestResponse[endpoint.key] || '// Click "Test" to see response'}
                   </pre>
                 </div>

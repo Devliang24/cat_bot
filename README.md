@@ -1,61 +1,189 @@
-# Qwen Car Agent
+# Qwen Car Agent 🚗
 
-A vehicle voice assistant agent powered by Qwen-Max, featuring a dual-screen workbench for debugging thought chains.
+基于阿里云通义千问 (Qwen-Max) 的智能车载语音助手系统，支持车辆控制、导航和媒体播放等功能，配备双屏工作台用于调试思维链。
 
-## Project Structure
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| **后端 API** | FastAPI + Uvicorn |
+| **LLM** | 阿里云 DashScope (Qwen-Max) |
+| **数据库** | SQLite + SQLAlchemy |
+| **前端** | React 19 + TypeScript + Vite |
+| **UI 组件** | Ant Design 6.x |
+| **数据预处理** | Pandas + openpyxl |
+
+## 架构概览
+
+```
+┌─────────────────┐     HTTP API     ┌─────────────────┐     DashScope     ┌─────────────┐
+│  React Frontend │ ◄──────────────► │  FastAPI Server │ ◄───────────────► │  Qwen-Max   │
+│  (localhost:5173)│                 │  (localhost:8000)│                   │    LLM      │
+└─────────────────┘                  └────────┬────────┘                   └─────────────┘
+                                              │
+                                              ▼
+                                     ┌─────────────────┐
+                                     │  SQLite + JSON  │
+                                     │  (日志 + 知识库)  │
+                                     └─────────────────┘
+```
+
+## 数据流
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 用户
+    participant F as 🖥️ Frontend
+    participant B as ⚙️ Backend
+    participant Q as 🤖 Qwen-Max
+    participant D as 💾 SQLite
+
+    U->>F: 输入指令 "打开空调"
+    F->>B: POST /chat
+    B->>B: 构建 System Prompt (注入知识库)
+    B->>Q: 调用 LLM API
+    Q-->>B: JSON 响应 {action, reply, intent}
+    B->>D: 记录日志 (ChatLog)
+    B-->>F: 返回结果 + Trace 信息
+    F-->>U: 显示回复 + 动作标签
+```
+
+## 项目结构
 
 ```
 car_bot/
-├── scripts/             # Data preprocessing
-│   └── preprocess.py    # Extracts rules from Excel to JSON
-├── server/              # FastAPI Backend
-│   ├── main.py          # API Routes
-│   ├── agent.py         # Qwen Agent Logic
-│   ├── database.py      # SQLite Logging
-│   └── data/            # Knowledge Base storage
-├── client/              # React Frontend (Vite + AntD)
-│   ├── src/pages/       # Workbench & KnowledgeBase views
-└── VR_Feature_List_demo.xlsx # Original Source
+├── scripts/                    # 数据预处理
+│   └── preprocess.py           # Excel → JSON 转换
+├── server/                     # FastAPI 后端
+│   ├── main.py                 # API 路由定义
+│   ├── agent.py                # Qwen Agent 核心逻辑
+│   ├── database.py             # SQLite 日志表定义
+│   └── data/
+│       └── knowledge_base.json # 知识库 (规则 + 意图)
+├── client/                     # React 前端 (Vite + AntD)
+│   └── src/
+│       ├── App.tsx             # 主应用组件
+│       └── index.css           # 样式文件
+├── VR_Feature_List_demo.xlsx   # 原始数据源
+└── car_bot.db                  # SQLite 日志数据库
 ```
 
-## Prerequisites
+## 环境要求
 
-1. Python 3.9+
-2. Node.js 16+
-3. DashScope API Key (Qwen)
+- Python 3.9+
+- Node.js 16+
+- DashScope API Key (阿里云)
 
-## Setup & Run
+## 快速启动
 
-### 1. Data Preprocessing (Already Done)
-The `server/data/knowledge_base.json` has already been generated from the Excel file.
-If you need to regenerate it:
+### 1. 数据预处理 (可选)
+知识库已生成，如需重新处理：
 ```bash
 python scripts/preprocess.py
 ```
 
-### 2. Backend (Server)
+### 2. 启动后端
 ```bash
 cd server
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Export your API Key
 export DASHSCOPE_API_KEY="sk-..."
-
-# Run Server (Port 8000)
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000
 ```
 
-### 3. Frontend (Client)
+### 3. 启动前端
 ```bash
 cd client
 npm install
 npm run dev
 ```
-Access the UI at http://localhost:5173
+访问 http://localhost:5173
 
-## Features
-- **Workbench**: Chat with the agent and view the real-time "Chain of Thought" (Timeline).
-- **Knowledge Base**: Inspect the loaded Excel rules and intents.
-- **Logs**: All interactions are saved to `car_bot.db`.
+## API 接口
+
+| 路由 | 方法 | 功能 |
+|------|------|------|
+| `/` | GET | 健康检查 |
+| `/knowledge` | GET | 获取知识库 |
+| `/chat` | POST | 对话处理 |
+| `/logs` | GET | 查询历史日志 |
+
+### 对话请求示例
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "打开空调", "history": []}'
+```
+
+### 响应格式
+```json
+{
+  "reply": "好的，已为您打开空调",
+  "action": {"action": "AC_ON"},
+  "trace": {"latency_ms": 1200, "token_usage": {...}},
+  "log_id": 1
+}
+```
+
+## 数据库结构 (ChatLog)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `user_input` | Text | 用户输入 |
+| `intent_detected` | String | 检测到的意图 |
+| `full_prompt` | Text | 完整 Prompt |
+| `raw_response` | Text | LLM 原始响应 |
+| `parsed_action` | JSON | 解析后的动作 |
+| `latency_ms` | Integer | 延迟 (毫秒) |
+| `token_usage` | JSON | Token 用量 |
+
+## 知识库内容
+
+### 车辆控制规则 (5 条)
+- 硬件不支持时回复 "暂不支持此技能"
+- 支持各位置独立控制 (主驾/副驾/前排/后排)
+- 车辆未启动时拒绝空调相关命令
+
+### 支持的功能领域
+
+```mermaid
+mindmap
+  root((🚗 Vehicle))
+    🌡️ 空调控制
+      打开/关闭空调
+      温度调节
+      风量设置
+      制冷/制热
+    💨 风向控制
+      吹足/吹面
+      模式切换
+    ❄️ 除霜除雾
+      前后除霜
+      最大除霜
+    💺 座椅控制
+      加热
+      通风
+      按摩
+    🪟 车窗天窗
+      开关控制
+      锁定解锁
+    💡 灯光控制
+      近光灯/远光灯
+      氛围灯
+```
+
+## 前端功能
+
+1. **对话界面**: 实时聊天 + 快捷指令
+2. **思维链查看**: Prompt / Token / 延迟 / cURL
+3. **知识库展示**: 规则列表 + 意图表格
+
+## 项目亮点
+
+- ✅ 完整的调试工具链 (思维链可视化)
+- ✅ 结构化 JSON 输出，便于后续处理
+- ✅ 多位置支持 (主驾/副驾/前后排)
+- ✅ 知识库驱动，从 Excel 自动生成
+- ✅ 保留最近 5 轮对话上下文

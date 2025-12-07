@@ -726,20 +726,20 @@ const App: React.FC = () => {
                 </div>
               </div>
               
-              <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
                 {endpoint.method === 'POST' && (
-                  <div style={{ flex: 1 }}>
-                    <Text strong style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>{t('reqBody')}:</Text>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Text strong style={{ fontSize: 12, marginBottom: 4 }}>{t('reqBody')}:</Text>
                     <TextArea
                       value={apiTestBody[endpoint.key] ?? endpoint.body ?? ''}
                       onChange={(e) => setApiTestBody(prev => ({ ...prev, [endpoint.key]: e.target.value }))}
-                      style={{ fontFamily: 'monospace', fontSize: 12, height: 180, resize: 'none' }}
+                      style={{ fontFamily: 'monospace', fontSize: 12, flex: 1, minHeight: 180, resize: 'none' }}
                     />
                   </div>
                 )}
-                <div style={{ flex: 1 }}>
-                  <Text strong style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>{t('respResult')}:</Text>
-                  <pre style={{ margin: 0, padding: 12, background: '#1f1f1f', color: '#0f0', borderRadius: 4, fontSize: 12, height: 156, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Text strong style={{ fontSize: 12, marginBottom: 4 }}>{t('respResult')}:</Text>
+                  <pre style={{ margin: 0, padding: 12, background: '#1f1f1f', color: '#0f0', borderRadius: 4, fontSize: 12, flex: 1, minHeight: 180, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', boxSizing: 'border-box' }}>
                     {apiTestResponse[endpoint.key] || '// Click "Test" to see response'}
                   </pre>
                 </div>

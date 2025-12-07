@@ -596,7 +596,7 @@ const App: React.FC = () => {
       label: t('files'),
       children: (
         <div className="tab-content" style={{ padding: 16 }}>
-          <div style={{ marginBottom: 16, display: 'flex', gap: 12 }}>
+          <div style={{ marginBottom: 16, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
             <Button 
               icon={<DownloadOutlined />} 
               onClick={() => window.open('http://localhost:8000/knowledge/template', '_blank')}
